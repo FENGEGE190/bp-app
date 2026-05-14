@@ -211,6 +211,43 @@ body {
 .about-section p { color: var(--text-secondary); font-size: 14px; margin-bottom: 8px; }
 .about-section .disclaimer { margin-top: 16px; padding: 12px; background: #FFF8E1; border-radius: 8px; font-size: 12px; color: #795548; line-height: 1.5; }
 
+/* === Splash Screen === */
+.splash-screen {
+  position: fixed; inset: 0; background: var(--primary); z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity .3s, visibility .3s;
+}
+.splash-screen.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+.splash-screen .splash-icon { font-size: 64px; margin-bottom: 16px; animation: splashPulse 1.2s ease-in-out infinite; }
+.splash-screen .splash-title { color: #fff; font-size: 22px; font-weight: 600; letter-spacing: 1px; }
+.splash-screen .splash-sub { color: rgba(255,255,255,.7); font-size: 14px; margin-top: 8px; }
+@keyframes splashPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: .8; }
+}
+
+/* === Install Banner === */
+.install-banner {
+  background: linear-gradient(135deg, #E3F2FD, #BBDEFB); border: 1px solid var(--primary-light);
+  border-radius: var(--radius); padding: 12px 16px; margin-bottom: 12px;
+  display: none; align-items: center; gap: 12px;
+}
+.install-banner.show { display: flex; }
+.install-banner .install-msg { flex: 1; font-size: 14px; color: var(--text); font-weight: 500; }
+.install-banner .install-btn {
+  background: var(--primary); color: #fff; border: none; padding: 8px 16px;
+  border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
+}
+.install-banner .install-dismiss { background: none; border: none; color: var(--text-hint); font-size: 18px; cursor: pointer; padding: 2px; }
+
+/* === Reminder Settings === */
+.reminder-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.reminder-row .reminder-label { width: 56px; font-size: 14px; color: var(--text-secondary); flex-shrink: 0; }
+.reminder-row input[type="time"] { flex: 1; }
+.reminder-row .btn { flex-shrink: 0; }
+.reminder-status { font-size: 12px; color: var(--success); margin-top: -4px; margin-bottom: 8px; }
+.reminder-status.off { color: var(--text-hint); }
+
 /* === Responsive === */
 @media (min-width: 480px) {
   .app-shell { border-left: 1px solid var(--divider); border-right: 1px solid var(--divider); }
@@ -218,6 +255,13 @@ body {
 </style>
 </head>
 <body>
+
+<!-- Splash Screen -->
+<div class="splash-screen" id="splashScreen">
+  <div class="splash-icon">&#128147;</div>
+  <div class="splash-title">血压笔记</div>
+  <div class="splash-sub">记录健康每一天</div>
+</div>
 
 <div class="app-shell" id="app">
   <!-- Header -->
@@ -234,6 +278,11 @@ body {
 
     <!-- ===== HOME PAGE ===== -->
     <div class="page active" id="page-home">
+      <div class="install-banner" id="installBanner">
+        <span class="install-msg">📱 安装到桌面，记录更方便</span>
+        <button class="install-btn" onclick="installApp()">安装</button>
+        <button class="install-dismiss" onclick="dismissInstall()">&times;</button>
+      </div>
       <div id="homeContent"></div>
     </div>
 
@@ -328,12 +377,28 @@ body {
       <div class="card about-section">
         <div class="app-icon">&#128147;</div>
         <h3>血压笔记</h3>
-        <div class="version">版本 1.0.0</div>
+        <div class="version">版本 1.1.0</div>
         <p>记录每日血压，关注心血管健康</p>
         <p style="font-size:13px;color:var(--text-secondary);">所有数据保存在本地，不会上传到任何服务器</p>
         <div class="disclaimer">
           免责声明：本应用仅供参考，不构成医疗诊断。如有高血压症状，请及时就医。
         </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;margin-bottom:12px;">⏰ 测血压提醒</h3>
+        <div class="reminder-row">
+          <span class="reminder-label">早上</span>
+          <input type="time" class="form-input" id="reminderMorning" value="08:00" style="padding:8px 12px;">
+          <button class="btn btn-sm btn-outline" onclick="testNotification('morning')">测试</button>
+        </div>
+        <div class="reminder-row">
+          <span class="reminder-label">晚上</span>
+          <input type="time" class="form-input" id="reminderEvening" value="20:00" style="padding:8px 12px;">
+          <button class="btn btn-sm btn-outline" onclick="testNotification('evening')">测试</button>
+        </div>
+        <div class="reminder-status" id="reminderStatus">🔔 提醒已开启</div>
+        <button class="btn btn-primary btn-block" onclick="saveReminderSettings()">保存提醒设置</button>
+        <button class="btn btn-outline btn-block" style="margin-top:6px;" onclick="toggleReminder()" id="reminderToggle">🔕 关闭提醒</button>
       </div>
       <div class="card">
         <button class="btn btn-outline btn-block" onclick="exportCSV()">&#128229; 导出数据 (CSV)</button>
@@ -509,7 +574,7 @@ function navigate(page, data) {
   else if (page === 'record') initRecordForm(data);
   else if (page === 'history') renderHistory();
   else if (page === 'charts') { renderChart(); renderStats(); }
-  else if (page === 'settings') updateSettingsCount();
+  else if (page === 'settings') { updateSettingsCount(); if (typeof updateReminderUI === 'function') updateReminderUI(); }
 
   if (page === 'charts') document.getElementById('chartBtn').style.display = 'none';
 }
@@ -990,14 +1055,178 @@ async function updateSettingsCount() {
   document.getElementById('totalRecordsCount').textContent = records.length;
 }
 
+// ============ INSTALL PROMPT ============
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const banner = document.getElementById('installBanner');
+  if (banner && !localStorage.getItem('installDismissed')) banner.classList.add('show');
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+  showToast('应用已安装到桌面');
+});
+
+function installApp() {
+  if (!deferredPrompt) { showToast('安装暂不可用，请稍后再试'); return; }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(r => {
+    deferredPrompt = null;
+    document.getElementById('installBanner').classList.remove('show');
+  });
+}
+
+function dismissInstall() {
+  document.getElementById('installBanner').classList.remove('show');
+  localStorage.setItem('installDismissed', '1');
+}
+
+// ============ REMINDER ============
+let reminderTimer = null;
+let reminderEnabled = localStorage.getItem('reminderEnabled') !== 'false';
+
+function initReminders() {
+  if (reminderEnabled) checkAndFireReminder();
+  reminderTimer = setInterval(() => {
+    if (reminderEnabled) checkAndFireReminder();
+  }, 30000); // Check every 30 seconds
+}
+
+function getReminderTimes() {
+  return {
+    morning: localStorage.getItem('reminderMorning') || '08:00',
+    evening: localStorage.getItem('reminderEvening') || '20:00'
+  };
+}
+
+function saveReminderSettings() {
+  const morning = document.getElementById('reminderMorning').value;
+  const evening = document.getElementById('reminderEvening').value;
+  localStorage.setItem('reminderMorning', morning);
+  localStorage.setItem('reminderEvening', evening);
+  if (!('Notification' in window)) return showToast('你的浏览器不支持通知');
+
+  if (Notification.permission === 'granted') {
+    showToast('提醒设置已保存');
+    updateReminderUI();
+  } else {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') { showToast('提醒设置已保存'); updateReminderUI(); }
+      else showToast('请允许通知权限才能收到提醒');
+    });
+  }
+}
+
+function toggleReminder() {
+  reminderEnabled = !reminderEnabled;
+  localStorage.setItem('reminderEnabled', reminderEnabled);
+  updateReminderUI();
+  showToast(reminderEnabled ? '提醒已开启' : '提醒已关闭');
+}
+
+function updateReminderUI() {
+  const status = document.getElementById('reminderStatus');
+  const toggle = document.getElementById('reminderToggle');
+  const morning = document.getElementById('reminderMorning');
+  const evening = document.getElementById('reminderEvening');
+  const times = getReminderTimes();
+
+  if (morning) morning.value = times.morning;
+  if (evening) evening.value = times.evening;
+
+  if (Notification.permission !== 'granted') {
+    status.textContent = '⚠ 需要先授予通知权限';
+    status.className = 'reminder-status off';
+  } else if (!reminderEnabled) {
+    status.textContent = '🔕 提醒已关闭';
+    status.className = 'reminder-status off';
+  } else {
+    status.textContent = `🔔 提醒已开启（${times.morning} / ${times.evening}）`;
+    status.className = 'reminder-status';
+  }
+
+  if (toggle) toggle.textContent = reminderEnabled ? '🔕 关闭提醒' : '🔔 开启提醒';
+}
+
+function checkAndFireReminder() {
+  const now = new Date();
+  const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const times = getReminderTimes();
+  const firedKey = `reminderFired_${now.toISOString().substring(0,10)}`;
+
+  const todayFired = JSON.parse(localStorage.getItem(firedKey) || '{}');
+
+  if (hhmm === times.morning && !todayFired.morning) {
+    showBPNotification('早上好！该测血压了', '早晨是血压测量的重要时段，记得记录哦～');
+    todayFired.morning = true;
+    localStorage.setItem(firedKey, JSON.stringify(todayFired));
+  }
+  if (hhmm === times.evening && !todayFired.evening) {
+    showBPNotification('晚上好！记得测血压', '睡前测量有助了解一天的血压变化');
+    todayFired.evening = true;
+    localStorage.setItem(firedKey, JSON.stringify(todayFired));
+  }
+}
+
+function showBPNotification(title, body) {
+  if (Notification.permission !== 'granted') return;
+  const notif = new Notification(title, {
+    body,
+    icon: 'icons/icon-192.png',
+    tag: 'bp-reminder',
+    requireInteraction: true,
+    vibrate: [200, 100, 200]
+  });
+  notif.onclick = () => {
+    window.focus();
+    navigate('record');
+  };
+}
+
+function testNotification(type) {
+  if (!('Notification' in window)) return showToast('你的浏览器不支持通知');
+  if (Notification.permission !== 'granted') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') testNotification(type);
+      else showToast('请先允许通知权限');
+    });
+    return;
+  }
+  const times = getReminderTimes();
+  const msg = type === 'morning' ? `测试：早上 ${times.morning} 的提醒` : `测试：晚上 ${times.evening} 的提醒`;
+  showBPNotification('血压笔记 - 测试提醒', msg);
+  showToast('测试通知已发送');
+}
+
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', () => {
   renderHome();
+
+  // Splash screen
+  const splash = document.getElementById('splashScreen');
+  if (splash) {
+    setTimeout(() => {
+      splash.classList.add('hide');
+      setTimeout(() => { if (splash.parentNode) splash.style.display = 'none'; }, 400);
+    }, 800);
+  }
+
+  // Install banner visibility
+  if (localStorage.getItem('installDismissed')) {
+    document.getElementById('installBanner').classList.remove('show');
+  }
 
   // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+
+  // Init reminders
+  if ('Notification' in window) initReminders();
 
   // Listen for storage changes from other tabs
   window.addEventListener('storage', () => navigate(currentPage));
