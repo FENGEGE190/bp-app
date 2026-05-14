@@ -1024,20 +1024,31 @@ async function exportCSV() {
 
   let csv = '﻿日期,时间,收缩压,舒张压,心率,备注\n';
   records.reverse().forEach(r => {
-    const d = new Date(r.timestamp || r.date);
     const date = r.date;
     const time = formatTime(r.timestamp || r.date);
     csv += `${date},${time},${r.systolic},${r.diastolic},${r.heartRate},"${r.notes || ''}"\n`;
   });
 
+  const fileName = `血压数据_${new Date().toISOString().substring(0,10)}.csv`;
+
+  // Try Android native download first
+  if (typeof window.Android !== 'undefined' && window.Android.downloadFile) {
+    try {
+      const base64 = btoa(unescape(encodeURIComponent(csv)));
+      window.Android.downloadFile(base64, fileName);
+      return;
+    } catch (e) {}
+  }
+
+  // Fallback: browser blob download
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `血压数据_${new Date().toISOString().substring(0,10)}.csv`;
+  a.download = fileName;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('数据已导出');
+  showToast('文件已保存到下载文件夹');
 }
 
 // ============ CLEAR ALL ============
