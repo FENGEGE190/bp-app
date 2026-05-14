@@ -1204,16 +1204,17 @@ function testNotification(type) {
 
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', () => {
-  renderHome();
-
-  // Splash screen
+  // Splash screen — hide first, even if other init fails
   const splash = document.getElementById('splashScreen');
   if (splash) {
     setTimeout(() => {
       splash.classList.add('hide');
       setTimeout(() => { if (splash.parentNode) splash.style.display = 'none'; }, 400);
-    }, 800);
+    }, 900);
   }
+
+  // Wrapped so splash still hides if it throws
+  try { renderHome(); } catch (e) {}
 
   // Install banner visibility
   if (localStorage.getItem('installDismissed')) {
