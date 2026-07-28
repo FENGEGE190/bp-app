@@ -129,6 +129,17 @@ body {
 .btn-danger { color: var(--danger); }
 .btn-sm { padding: 6px 14px; font-size: 14px; }
 .btn-icon { padding: 8px; border-radius: 50%; background: none; border: none; cursor: pointer; font-size: 20px; color: var(--text-secondary); }
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+/* === Export Status === */
+.export-status {
+  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+  background: #E3F2FD; color: #0D47A1; font-size: 13px; line-height: 1.5;
+  white-space: pre-line;
+}
+.export-status.success { background: #E8F5E9; color: #1B5E20; }
+.export-status.warning { background: #FFF8E1; color: #795548; }
+.export-status.error { background: #FFEBEE; color: #B71C1C; }
 
 /* === History List === */
 .record-item {
@@ -377,10 +388,11 @@ body {
       </div>
       <div id="statsContent"></div>
       <div class="button-stack" style="margin-top:8px;">
-        <button class="btn btn-outline btn-block" onclick="exportWord()">&#128196; 导出 Word 报告</button>
-        <button class="btn btn-outline btn-block" onclick="exportPDF()">&#128424; 打印 / 保存 PDF</button>
-        <button class="btn btn-outline btn-block" onclick="exportCSV()">&#128229; 导出 CSV 数据</button>
+        <button class="btn btn-outline btn-block" data-export-button onclick="exportWord()">&#128196; 导出 Word 报告</button>
+        <button class="btn btn-outline btn-block" data-export-button onclick="exportPDF()">&#128424; 打印 / 保存 PDF</button>
+        <button class="btn btn-outline btn-block" data-export-button onclick="exportCSV()">&#128229; 导出 CSV 数据</button>
       </div>
+      <div class="export-status" data-export-status hidden role="status" aria-live="polite"></div>
     </div>
 
     <!-- ===== SETTINGS PAGE ===== -->
@@ -388,7 +400,7 @@ body {
       <div class="card about-section">
         <div class="app-icon">&#128147;</div>
         <h3>血压笔记</h3>
-        <div class="version">版本 1.2.0</div>
+        <div class="version">版本 1.2.1</div>
         <p>记录每日血压，关注心血管健康</p>
         <p style="font-size:13px;color:var(--text-secondary);">所有数据保存在本地，不会上传到任何服务器</p>
         <div class="disclaimer">
@@ -435,11 +447,12 @@ body {
       </div>
       <div class="card">
         <div class="button-stack">
-          <button class="btn btn-outline btn-block" onclick="exportWord()">&#128196; 导出 Word 报告</button>
-          <button class="btn btn-outline btn-block" onclick="exportPDF()">&#128424; 打印 / 保存 PDF</button>
-          <button class="btn btn-outline btn-block" onclick="exportCSV()">&#128229; 导出 CSV 数据</button>
+          <button class="btn btn-outline btn-block" data-export-button onclick="exportWord()">&#128196; 导出 Word 报告</button>
+          <button class="btn btn-outline btn-block" data-export-button onclick="exportPDF()">&#128424; 打印 / 保存 PDF</button>
+          <button class="btn btn-outline btn-block" data-export-button onclick="exportCSV()">&#128229; 导出 CSV 数据</button>
           <button class="btn btn-outline btn-block" onclick="confirmClearAll()">&#128465; 清空全部数据</button>
         </div>
+        <div class="export-status" data-export-status hidden role="status" aria-live="polite"></div>
       </div>
       <div style="text-align:center;padding:16px;color:var(--text-hint);font-size:12px;">
         数据统计：共 <span id="totalRecordsCount">0</span> 条记录
@@ -481,7 +494,7 @@ body {
     <h3 id="modalTitle">确认</h3>
     <p id="modalMessage">确定要执行此操作吗？</p>
     <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal(false)">取消</button>
+      <button class="btn btn-outline" id="modalCancelBtn" onclick="closeModal(false)">取消</button>
       <button class="btn btn-primary" id="modalConfirmBtn" onclick="closeModal(true)">确定</button>
     </div>
   </div>
@@ -696,8 +709,18 @@ let modalCallback = null;
 function showModal(title, msg, cb) {
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalMessage').textContent = msg;
+  document.getElementById('modalCancelBtn').style.display = '';
+  document.getElementById('modalConfirmBtn').textContent = '确定';
   document.getElementById('modal').classList.add('show');
   modalCallback = cb;
+}
+function showInfoModal(title, msg) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalMessage').textContent = msg;
+  document.getElementById('modalCancelBtn').style.display = 'none';
+  document.getElementById('modalConfirmBtn').textContent = '知道了';
+  document.getElementById('modal').classList.add('show');
+  modalCallback = null;
 }
 function closeModal(confirmed = false) {
   document.getElementById('modal').classList.remove('show');
@@ -1139,24 +1162,98 @@ function escapeHTML(value) {
     .replace(/'/g, '&#39;');
 }
 
-async function downloadContent(content, fileName, mimeType) {
-  if (typeof window.Android !== 'undefined' && window.Android.downloadFile) {
+function setExportStatus(message, type = '') {
+  document.querySelectorAll('[data-export-status]').forEach(element => {
+    element.hidden = false;
+    element.className = `export-status ${type}`.trim();
+    element.textContent = message;
+  });
+}
+
+function setExportBusy(isBusy) {
+  document.querySelectorAll('[data-export-button]').forEach(button => {
+    button.disabled = isBusy;
+  });
+}
+
+function pickerOptions(fileName, mimeType) {
+  const extension = `.${fileName.split('.').pop().toLowerCase()}`;
+  const cleanMimeType = mimeType.split(';')[0];
+  return {
+    suggestedName: fileName,
+    types: [{
+      description: `${extension.slice(1).toUpperCase()} 文件`,
+      accept: { [cleanMimeType]: [extension] }
+    }]
+  };
+}
+
+function parseAndroidSaveResult(result, fileName) {
+  if (result === false) throw new Error('Android 保存接口返回失败');
+  if (typeof result === 'string' && result.trim()) {
     try {
-      const base64 = btoa(unescape(encodeURIComponent(content)));
-      window.Android.downloadFile(base64, fileName);
-      return;
-    } catch (error) {}
+      const data = JSON.parse(result);
+      if (data.success === false) throw new Error(data.message || '保存失败');
+      if (data.success === true) {
+        return {
+          status: 'saved',
+          message: `导出成功：${fileName}\n保存位置：${data.path || '应用选择的位置'}`
+        };
+      }
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        return { status: 'saved', message: `导出成功：${fileName}\n保存位置：${result}` };
+      }
+      throw error;
+    }
+  }
+  return {
+    status: 'requested',
+    message: `已将 ${fileName} 提交给应用保存。\n当前版本无法读取实际路径，请在系统“下载”文件夹中确认。`
+  };
+}
+
+async function downloadContent(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+
+  if (typeof window.showSaveFilePicker === 'function') {
+    try {
+      const handle = await window.showSaveFilePicker(pickerOptions(fileName, mimeType));
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return {
+        status: 'saved',
+        message: `导出成功：${handle.name || fileName}\n保存位置：您刚才选择的文件夹`
+      };
+    } catch (error) {
+      if (error?.name === 'AbortError') return { status: 'cancelled' };
+      throw error;
+    }
   }
 
-  const blob = new Blob([content], { type: mimeType });
+  if (typeof window.Android !== 'undefined' && typeof window.Android.downloadFile === 'function') {
+    const base64 = btoa(unescape(encodeURIComponent(content)));
+    return parseAndroidSaveResult(window.Android.downloadFile(base64, fileName), fileName);
+  }
+
   const file = typeof File === 'function' ? new File([blob], fileName, { type: mimeType }) : null;
   if (file && /Android/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({ files: [file] })) {
     try {
+      showToast('请选择“保存到文件”或其他目标');
       await navigator.share({ files: [file], title: fileName });
-      return;
+      return {
+        status: 'shared',
+        message: `已交给您选择的应用：${fileName}\n若选择“保存到文件”，位置由您在系统界面中指定。`
+      };
     } catch (error) {
-      if (error?.name === 'AbortError') return;
+      if (error?.name === 'AbortError') return { status: 'cancelled' };
+      throw error;
     }
+  }
+
+  if (/Android/i.test(navigator.userAgent) && /(?:; wv\)|Version\/4\.0)/i.test(navigator.userAgent)) {
+    throw new Error('当前 APK 不支持可靠的文件保存，请安装带原生保存功能的新版 APK');
   }
 
   const url = URL.createObjectURL(blob);
@@ -1167,6 +1264,27 @@ async function downloadContent(content, fileName, mimeType) {
   anchor.click();
   anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+  return {
+    status: 'requested',
+    message: `已发起下载：${fileName}\n通常保存在系统“下载 / Downloads”文件夹；网页无法确认最终写入结果。`
+  };
+}
+
+function finishExport(result) {
+  if (result.status === 'cancelled') {
+    setExportStatus('已取消导出，未保存文件。', 'warning');
+    showToast('已取消导出');
+    return;
+  }
+  const type = result.status === 'saved' ? 'success' : 'warning';
+  setExportStatus(result.message, type);
+  showInfoModal(result.status === 'saved' ? '导出成功' : '导出结果', result.message);
+}
+
+function failExport(error) {
+  const message = `导出失败：${error?.message || '未知错误'}`;
+  setExportStatus(message, 'error');
+  showInfoModal('导出失败', message);
 }
 
 function buildReportHTML(records) {
@@ -1221,48 +1339,72 @@ function buildReportHTML(records) {
 }
 
 async function exportCSV() {
-  const records = await getAllRecords();
-  if (records.length === 0) { showToast('暂无数据可导出'); return; }
+  setExportBusy(true);
+  setExportStatus('正在准备 CSV 数据…');
+  try {
+    const records = await getAllRecords();
+    if (records.length === 0) { setExportStatus('暂无数据可导出。', 'warning'); showToast('暂无数据可导出'); return; }
 
-  let csv = '﻿日期,时间,收缩压,舒张压,心率,备注\n';
-  records.reverse().forEach(r => {
-    const date = r.date;
-    const time = formatTime(r.timestamp || r.date);
-    csv += `${escapeCSV(date)},${escapeCSV(time)},${r.systolic},${r.diastolic},${r.heartRate},${escapeCSV(r.notes || '')}\n`;
-  });
+    let csv = '﻿日期,时间,收缩压,舒张压,心率,备注\n';
+    records.reverse().forEach(r => {
+      const date = r.date;
+      const time = formatTime(r.timestamp || r.date);
+      csv += `${escapeCSV(date)},${escapeCSV(time)},${r.systolic},${r.diastolic},${r.heartRate},${escapeCSV(r.notes || '')}\n`;
+    });
 
-  await downloadContent(csv, `血压数据_${getLocalDateString()}.csv`, 'text/csv;charset=utf-8');
-  showToast('文件已保存到下载文件夹');
+    finishExport(await downloadContent(csv, `血压数据_${getLocalDateString()}.csv`, 'text/csv;charset=utf-8'));
+  } catch (error) {
+    failExport(error);
+  } finally {
+    setExportBusy(false);
+  }
 }
 
 async function exportWord() {
-  const records = await getAllRecords();
-  if (records.length === 0) { showToast('暂无数据可导出'); return; }
-  const html = `\ufeff${buildReportHTML(records)}`;
-  await downloadContent(html, `血压记录报告_${getLocalDateString()}.doc`, 'application/msword;charset=utf-8');
-  showToast('Word 报告已生成');
+  setExportBusy(true);
+  setExportStatus('正在准备 Word 报告…');
+  try {
+    const records = await getAllRecords();
+    if (records.length === 0) { setExportStatus('暂无数据可导出。', 'warning'); showToast('暂无数据可导出'); return; }
+    const html = `\ufeff${buildReportHTML(records)}`;
+    finishExport(await downloadContent(html, `血压记录报告_${getLocalDateString()}.doc`, 'application/msword;charset=utf-8'));
+  } catch (error) {
+    failExport(error);
+  } finally {
+    setExportBusy(false);
+  }
 }
 
 async function exportPDF() {
-  const records = await getAllRecords();
-  if (records.length === 0) { showToast('暂无数据可导出'); return; }
-  const frame = document.createElement('iframe');
-  frame.style.position = 'fixed';
-  frame.style.width = '1px';
-  frame.style.height = '1px';
-  frame.style.opacity = '0';
-  frame.style.pointerEvents = 'none';
-  document.body.appendChild(frame);
-  const doc = frame.contentDocument;
-  doc.open();
-  doc.write(buildReportHTML(records));
-  doc.close();
-  setTimeout(() => {
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-    setTimeout(() => frame.remove(), 1500);
-  }, 300);
-  showToast('请在打印界面选择“保存为 PDF”');
+  setExportBusy(true);
+  setExportStatus('正在打开系统打印界面…');
+  try {
+    const records = await getAllRecords();
+    if (records.length === 0) { setExportStatus('暂无数据可导出。', 'warning'); showToast('暂无数据可导出'); return; }
+    const frame = document.createElement('iframe');
+    frame.style.position = 'fixed';
+    frame.style.width = '1px';
+    frame.style.height = '1px';
+    frame.style.opacity = '0';
+    frame.style.pointerEvents = 'none';
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument;
+    doc.open();
+    doc.write(buildReportHTML(records));
+    doc.close();
+    setTimeout(() => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      setTimeout(() => frame.remove(), 1500);
+    }, 300);
+    const message = '请在系统打印界面选择“保存为 PDF”，并自行选择保存位置。\n网页无法判断您最终保存还是取消。';
+    setExportStatus(message, 'warning');
+    showInfoModal('保存 PDF', message);
+  } catch (error) {
+    failExport(error);
+  } finally {
+    setExportBusy(false);
+  }
 }
 
 // ============ CLEAR ALL ============
