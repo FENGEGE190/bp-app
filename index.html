@@ -29,16 +29,20 @@
   --radius: 12px;
   --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
   --shadow-lg: 0 4px 12px rgba(0,0,0,.1);
+  --app-height: 100dvh;
 }
-html, body { height: 100%; overflow: hidden; }
+html, body { height: 100%; min-height: -webkit-fill-available; overflow: hidden; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: antialiased; overscroll-behavior: none;
 }
 
 /* === App Shell === */
-.app-shell { display: flex; flex-direction: column; height: 100vh; max-width: 480px; margin: 0 auto; position: relative; overflow: hidden; }
+.app-shell {
+  display: flex; flex-direction: column; height: 100vh; height: var(--app-height);
+  max-width: 480px; margin: 0 auto; position: relative; overflow: hidden;
+}
 
 /* === Header === */
 .app-header {
@@ -52,7 +56,7 @@ body {
 .header-btn { background: none; border: none; color: #fff; font-size: 20px; padding: 4px 8px; cursor: pointer; }
 
 /* === Main Content === */
-.main-content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+.main-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 .page { display: none; padding: 16px; padding-bottom: 80px; animation: fadeIn .2s ease; }
 .page.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -60,7 +64,8 @@ body {
 /* === Bottom Nav === */
 .bottom-nav {
   display: flex; background: var(--card); border-top: 1px solid var(--divider);
-  flex-shrink: 0; z-index: 10; padding-bottom: env(safe-area-inset-bottom, 0);
+  flex: 0 0 auto; min-height: 56px; z-index: 10;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px);
 }
 .nav-item {
   flex: 1; text-align: center; padding: 6px 0 4px; cursor: pointer; transition: all .15s;
@@ -247,6 +252,8 @@ body {
 .reminder-row .btn { flex-shrink: 0; }
 .reminder-status { font-size: 12px; color: var(--success); margin-top: -4px; margin-bottom: 8px; }
 .reminder-status.off { color: var(--text-hint); }
+.settings-note { font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin: 8px 0 12px; }
+.button-stack { display: grid; gap: 8px; }
 
 /* === Responsive === */
 @media (min-width: 480px) {
@@ -294,10 +301,10 @@ body {
             <label>测量时间</label>
             <div class="datetime-row">
               <div class="form-group">
-                <input type="date" class="form-input" id="recDate">
+                <input type="date" class="form-input" id="recDate" required>
               </div>
               <div class="form-group">
-                <input type="time" class="form-input" id="recTime">
+                <input type="time" class="form-input" id="recTime" required>
               </div>
             </div>
           </div>
@@ -307,14 +314,14 @@ body {
             <div class="form-group">
               <label>收缩压 (高压)</label>
               <div class="form-input-suffix">
-                <input type="number" class="form-input" id="recSystolic" placeholder="120" min="30" max="300" required>
+                <input type="number" class="form-input" id="recSystolic" min="30" max="300" inputmode="numeric" required>
                 <span class="suffix">mmHg</span>
               </div>
             </div>
             <div class="form-group">
               <label>舒张压 (低压)</label>
               <div class="form-input-suffix">
-                <input type="number" class="form-input" id="recDiastolic" placeholder="80" min="30" max="300" required>
+                <input type="number" class="form-input" id="recDiastolic" min="30" max="300" inputmode="numeric" required>
                 <span class="suffix">mmHg</span>
               </div>
             </div>
@@ -322,7 +329,7 @@ body {
           <div class="form-group">
             <label>心率</label>
             <div class="form-input-suffix">
-              <input type="number" class="form-input" id="recHeartRate" placeholder="72" min="20" max="300" required>
+              <input type="number" class="form-input" id="recHeartRate" min="20" max="300" inputmode="numeric" required>
               <span class="suffix">bpm</span>
             </div>
           </div>
@@ -369,7 +376,11 @@ body {
         </div>
       </div>
       <div id="statsContent"></div>
-      <button class="btn btn-outline btn-block" onclick="exportCSV()" style="margin-top:8px;">&#128229; 导出CSV数据</button>
+      <div class="button-stack" style="margin-top:8px;">
+        <button class="btn btn-outline btn-block" onclick="exportWord()">&#128196; 导出 Word 报告</button>
+        <button class="btn btn-outline btn-block" onclick="exportPDF()">&#128424; 打印 / 保存 PDF</button>
+        <button class="btn btn-outline btn-block" onclick="exportCSV()">&#128229; 导出 CSV 数据</button>
+      </div>
     </div>
 
     <!-- ===== SETTINGS PAGE ===== -->
@@ -377,12 +388,33 @@ body {
       <div class="card about-section">
         <div class="app-icon">&#128147;</div>
         <h3>血压笔记</h3>
-        <div class="version">版本 1.1.0</div>
+        <div class="version">版本 1.2.0</div>
         <p>记录每日血压，关注心血管健康</p>
         <p style="font-size:13px;color:var(--text-secondary);">所有数据保存在本地，不会上传到任何服务器</p>
         <div class="disclaimer">
           免责声明：本应用仅供参考，不构成医疗诊断。如有高血压症状，请及时就医。
         </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;margin-bottom:12px;">⚠ 血压警戒值</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>收缩压警戒值</label>
+            <div class="form-input-suffix">
+              <input type="number" class="form-input" id="alertSystolic" min="60" max="300" inputmode="numeric" value="140">
+              <span class="suffix">mmHg</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>舒张压警戒值</label>
+            <div class="form-input-suffix">
+              <input type="number" class="form-input" id="alertDiastolic" min="30" max="200" inputmode="numeric" value="90">
+              <span class="suffix">mmHg</span>
+            </div>
+          </div>
+        </div>
+        <div class="settings-note">达到任一警戒值时标红提示。该提示仅用于家庭记录，不作为医疗诊断。</div>
+        <button class="btn btn-primary btn-block" onclick="saveAlertSettings()">保存警戒值</button>
       </div>
       <div class="card">
         <h3 style="font-size:16px;margin-bottom:12px;">⏰ 测血压提醒</h3>
@@ -396,13 +428,18 @@ body {
           <input type="time" class="form-input" id="reminderEvening" value="20:00" style="padding:8px 12px;">
           <button class="btn btn-sm btn-outline" onclick="testNotification('evening')">测试</button>
         </div>
-        <div class="reminder-status" id="reminderStatus">🔔 提醒已开启</div>
+        <div class="reminder-status" id="reminderStatus">正在检查通知支持情况</div>
+        <div class="settings-note">网页提醒仅在应用保持打开时有效，不能替代手机系统闹钟。</div>
         <button class="btn btn-primary btn-block" onclick="saveReminderSettings()">保存提醒设置</button>
         <button class="btn btn-outline btn-block" style="margin-top:6px;" onclick="toggleReminder()" id="reminderToggle">🔕 关闭提醒</button>
       </div>
       <div class="card">
-        <button class="btn btn-outline btn-block" onclick="exportCSV()">&#128229; 导出数据 (CSV)</button>
-        <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="confirmClearAll()">&#128465; 清空全部数据</button>
+        <div class="button-stack">
+          <button class="btn btn-outline btn-block" onclick="exportWord()">&#128196; 导出 Word 报告</button>
+          <button class="btn btn-outline btn-block" onclick="exportPDF()">&#128424; 打印 / 保存 PDF</button>
+          <button class="btn btn-outline btn-block" onclick="exportCSV()">&#128229; 导出 CSV 数据</button>
+          <button class="btn btn-outline btn-block" onclick="confirmClearAll()">&#128465; 清空全部数据</button>
+        </div>
       </div>
       <div style="text-align:center;padding:16px;color:var(--text-hint);font-size:12px;">
         数据统计：共 <span id="totalRecordsCount">0</span> 条记录
@@ -444,8 +481,8 @@ body {
     <h3 id="modalTitle">确认</h3>
     <p id="modalMessage">确定要执行此操作吗？</p>
     <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal()">取消</button>
-      <button class="btn btn-primary" id="modalConfirmBtn" onclick="closeModal()">确定</button>
+      <button class="btn btn-outline" onclick="closeModal(false)">取消</button>
+      <button class="btn btn-primary" id="modalConfirmBtn" onclick="closeModal(true)">确定</button>
     </div>
   </div>
 </div>
@@ -532,23 +569,82 @@ async function clearAllRecords() {
   });
 }
 
-// ============ BP Classification ============
+// ============ Local Settings & BP Alert ============
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getAlertThresholds() {
+  const systolic = parseInt(localStorage.getItem('alertSystolic'), 10);
+  const diastolic = parseInt(localStorage.getItem('alertDiastolic'), 10);
+  return {
+    systolic: Number.isFinite(systolic) ? systolic : 140,
+    diastolic: Number.isFinite(diastolic) ? diastolic : 90
+  };
+}
+
+function updateAlertSettingsUI() {
+  const thresholds = getAlertThresholds();
+  const systolicInput = document.getElementById('alertSystolic');
+  const diastolicInput = document.getElementById('alertDiastolic');
+  if (systolicInput) systolicInput.value = thresholds.systolic;
+  if (diastolicInput) diastolicInput.value = thresholds.diastolic;
+}
+
+function saveAlertSettings() {
+  const systolic = parseInt(document.getElementById('alertSystolic').value, 10);
+  const diastolic = parseInt(document.getElementById('alertDiastolic').value, 10);
+  if (!Number.isFinite(systolic) || systolic < 60 || systolic > 300) {
+    showToast('收缩压警戒值应为 60-300');
+    return;
+  }
+  if (!Number.isFinite(diastolic) || diastolic < 30 || diastolic > 200) {
+    showToast('舒张压警戒值应为 30-200');
+    return;
+  }
+  if (systolic <= diastolic) {
+    showToast('收缩压警戒值应高于舒张压警戒值');
+    return;
+  }
+  localStorage.setItem('alertSystolic', String(systolic));
+  localStorage.setItem('alertDiastolic', String(diastolic));
+  showToast('警戒值已保存');
+}
+
 function classifyBP(systolic, diastolic) {
-  if (systolic >= 180 || diastolic >= 120) return { level: 'crisis', label: '高血压危象', color: '#D32F2F', advice: '⚠ 高血压危象！请立即就医！' };
-  if (systolic >= 140 || diastolic >= 90) return { level: 'stage2', label: '高血压2级', color: '#F44336', advice: '高血压2级，请及时就医，遵医嘱服药。' };
-  if (systolic >= 130 || diastolic >= 80) return { level: 'stage1', label: '高血压1级', color: '#FF9800', advice: '高血压1级，建议咨询医生，注意饮食和运动。' };
-  if (systolic >= 120 && diastolic < 80) return { level: 'elevated', label: '偏高', color: '#FFC107', advice: '血压偏高，建议减少盐摄入、增加运动。' };
-  return { level: 'normal', label: '正常', color: '#4CAF50', advice: '血压正常，继续保持健康生活方式。' };
+  const thresholds = getAlertThresholds();
+  if (systolic >= thresholds.systolic || diastolic >= thresholds.diastolic) {
+    return {
+      level: 'alert',
+      label: '达到警戒值',
+      color: '#F44336',
+      advice: `本次记录达到设定警戒值（${thresholds.systolic}/${thresholds.diastolic} mmHg），建议静坐后复测；如持续异常或伴随不适，请联系医生。`
+    };
+  }
+  return {
+    level: 'within',
+    label: '未达警戒值',
+    color: '#4CAF50',
+    advice: `本次记录未达到设定警戒值（${thresholds.systolic}/${thresholds.diastolic} mmHg）。`
+  };
 }
 
 function formatDate(dateStr) {
-  const d = new Date(dateStr);
+  const parts = String(dateStr || '').split('-').map(Number);
+  if (parts.length !== 3 || parts.some(v => !Number.isFinite(v))) return '日期未知';
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
   const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 周${weekdays[d.getDay()]}`;
+  return `${parts[0]}年${parts[1]}月${parts[2]}日 周${weekdays[d.getDay()]}`;
 }
 
 function formatTime(dateStr) {
+  const match = String(dateStr || '').match(/T(\d{2}):(\d{2})/);
+  if (match) return `${match[1]}:${match[2]}`;
   const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '--:--';
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
@@ -563,6 +659,7 @@ function navigate(page, data) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
   document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+  document.getElementById('mainContent').scrollTop = 0;
 
   document.getElementById('backBtn').style.display = 'none';
   document.getElementById('chartBtn').style.display = 'block';
@@ -574,7 +671,11 @@ function navigate(page, data) {
   else if (page === 'record') initRecordForm(data);
   else if (page === 'history') renderHistory();
   else if (page === 'charts') { renderChart(); renderStats(); }
-  else if (page === 'settings') { updateSettingsCount(); if (typeof updateReminderUI === 'function') updateReminderUI(); }
+  else if (page === 'settings') {
+    updateSettingsCount();
+    updateAlertSettingsUI();
+    updateReminderUI();
+  }
 
   if (page === 'charts') document.getElementById('chartBtn').style.display = 'none';
 }
@@ -598,9 +699,11 @@ function showModal(title, msg, cb) {
   document.getElementById('modal').classList.add('show');
   modalCallback = cb;
 }
-function closeModal() {
+function closeModal(confirmed = false) {
   document.getElementById('modal').classList.remove('show');
-  if (modalCallback) { modalCallback(); modalCallback = null; }
+  const callback = modalCallback;
+  modalCallback = null;
+  if (confirmed && callback) callback();
 }
 
 // ============ HOME ============
@@ -622,7 +725,7 @@ async function renderHome() {
 
   const latest = records[0];
   const r = classifyBP(latest.systolic, latest.diastolic);
-  const todayCount = records.filter(r => r.date && r.date.startsWith(new Date().toISOString().substring(0,10))).length;
+  const todayCount = records.filter(r => r.date === getLocalDateString()).length;
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
   const weekRecords = records.filter(r => new Date(r.timestamp || r.date) >= weekAgo);
   const avgSys = weekRecords.length ? Math.round(weekRecords.reduce((s,r) => s+r.systolic, 0) / weekRecords.length) : '-';
@@ -684,7 +787,7 @@ async function renderHome() {
         <div class="label">今日</div>
       </div>
       <div class="stat-mini">
-        <div class="num">${avgSys}</div>
+        <div class="num">${avgSys}/${avgDia}</div>
         <div class="label">近7日平均</div>
       </div>
     </div>
@@ -716,7 +819,7 @@ function initRecordForm(record) {
   } else {
     editRecordId = null;
     const now = new Date();
-    document.getElementById('recDate').value = now.toISOString().substring(0, 10);
+    document.getElementById('recDate').value = getLocalDateString(now);
     document.getElementById('recTime').value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     document.getElementById('recSystolic').value = '';
     document.getElementById('recDiastolic').value = '';
@@ -757,9 +860,12 @@ async function saveRecord(e) {
   const time = document.getElementById('recTime').value || '08:00';
   const notes = document.getElementById('recNotes').value.trim();
 
+  if (!date) { showToast('请选择测量日期'); return; }
+  if (!time) { showToast('请选择测量时间'); return; }
   if (!systolic || systolic < 30 || systolic > 300) { showToast('请输入有效的收缩压（30-300）'); return; }
   if (!diastolic || diastolic < 30 || diastolic > 300) { showToast('请输入有效的舒张压（30-300）'); return; }
   if (!heartRate || heartRate < 20 || heartRate > 300) { showToast('请输入有效的心率（20-300）'); return; }
+  if (systolic <= diastolic) { showToast('收缩压应高于舒张压'); return; }
 
   const timestamp = `${date}T${time}:00`;
 
@@ -991,8 +1097,8 @@ async function renderStats() {
   const avgHr = Math.round(records.reduce((s, r) => s + r.heartRate, 0) / records.length);
   const maxSys = Math.max(...records.map(r => r.systolic));
   const minSys = Math.min(...records.map(r => r.systolic));
-  const normalCount = records.filter(r => classifyBP(r.systolic, r.diastolic).level === 'normal').length;
-  const normalRate = Math.round(normalCount / records.length * 100);
+  const withinCount = records.filter(r => classifyBP(r.systolic, r.diastolic).level === 'within').length;
+  const withinRate = Math.round(withinCount / records.length * 100);
 
   const periodLabel = { week: '近7日', month: '近30日', quarter: '近90日' };
   const label = periodLabel[chartPeriod] || '近7日';
@@ -1007,17 +1113,113 @@ async function renderStats() {
     </div>
     <div class="card" style="margin-top:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:14px;color:var(--text-secondary)">血压正常率</span>
-        <span style="font-size:22px;font-weight:700;color:#4CAF50">${normalRate}%</span>
+        <span style="font-size:14px;color:var(--text-secondary)">未达警戒值比例</span>
+        <span style="font-size:22px;font-weight:700;color:#4CAF50">${withinRate}%</span>
       </div>
       <div style="margin-top:8px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;">
-        <div style="height:100%;width:${normalRate}%;background:#4CAF50;border-radius:3px;transition:width .3s;"></div>
+        <div style="height:100%;width:${withinRate}%;background:#4CAF50;border-radius:3px;transition:width .3s;"></div>
       </div>
-      <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">正常 ${normalCount} / 共 ${records.length} 天</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">未达警戒值 ${withinCount} / 共 ${records.length} 条记录</div>
     </div>`;
 }
 
-// ============ EXPORT CSV ============
+// ============ DATA EXPORT ============
+function escapeCSV(value) {
+  let text = String(value ?? '').replace(/\r?\n/g, ' ');
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function downloadContent(content, fileName, mimeType) {
+  if (typeof window.Android !== 'undefined' && window.Android.downloadFile) {
+    try {
+      const base64 = btoa(unescape(encodeURIComponent(content)));
+      window.Android.downloadFile(base64, fileName);
+      return;
+    } catch (error) {}
+  }
+
+  const blob = new Blob([content], { type: mimeType });
+  const file = typeof File === 'function' ? new File([blob], fileName, { type: mimeType }) : null;
+  if (file && /Android/i.test(navigator.userAgent) && navigator.share && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: fileName });
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+    }
+  }
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function buildReportHTML(records) {
+  const thresholds = getAlertThresholds();
+  const orderedRecords = [...records].reverse();
+  const alertCount = orderedRecords.filter(record => classifyBP(record.systolic, record.diastolic).level === 'alert').length;
+  const rows = orderedRecords.map(record => {
+    const status = classifyBP(record.systolic, record.diastolic).label;
+    return `<tr>
+      <td>${escapeHTML(record.date)}</td>
+      <td>${escapeHTML(formatTime(record.timestamp || record.date))}</td>
+      <td>${record.systolic}</td>
+      <td>${record.diastolic}</td>
+      <td>${record.heartRate}</td>
+      <td>${escapeHTML(status)}</td>
+      <td>${escapeHTML(record.notes || '')}</td>
+    </tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+  <html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <title>血压记录报告</title>
+    <style>
+      body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#212121;margin:32px}
+      h1{text-align:center;color:#1976D2;margin-bottom:8px}
+      .meta{text-align:center;color:#666;margin-bottom:24px}
+      .summary{margin-bottom:16px;padding:12px;background:#f5f7fa;border-radius:8px}
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{border:1px solid #bbb;padding:7px;text-align:center}
+      th{background:#e3f2fd}
+      td:last-child{text-align:left}
+      .note{margin-top:18px;font-size:12px;color:#666}
+      @page{size:A4;margin:14mm}
+    </style>
+  </head>
+  <body>
+    <h1>血压记录报告</h1>
+    <div class="meta">生成日期：${getLocalDateString()}</div>
+    <div class="summary">
+      共 ${orderedRecords.length} 条记录；达到警戒值 ${alertCount} 条；
+      当前警戒值：收缩压 ${thresholds.systolic} mmHg / 舒张压 ${thresholds.diastolic} mmHg。
+    </div>
+    <table>
+      <thead><tr><th>日期</th><th>时间</th><th>收缩压</th><th>舒张压</th><th>心率</th><th>提示</th><th>备注</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="note">本报告仅用于家庭血压记录，不作为医疗诊断依据。</div>
+  </body>
+  </html>`;
+}
+
 async function exportCSV() {
   const records = await getAllRecords();
   if (records.length === 0) { showToast('暂无数据可导出'); return; }
@@ -1026,29 +1228,41 @@ async function exportCSV() {
   records.reverse().forEach(r => {
     const date = r.date;
     const time = formatTime(r.timestamp || r.date);
-    csv += `${date},${time},${r.systolic},${r.diastolic},${r.heartRate},"${r.notes || ''}"\n`;
+    csv += `${escapeCSV(date)},${escapeCSV(time)},${r.systolic},${r.diastolic},${r.heartRate},${escapeCSV(r.notes || '')}\n`;
   });
 
-  const fileName = `血压数据_${new Date().toISOString().substring(0,10)}.csv`;
-
-  // Try Android native download first
-  if (typeof window.Android !== 'undefined' && window.Android.downloadFile) {
-    try {
-      const base64 = btoa(unescape(encodeURIComponent(csv)));
-      window.Android.downloadFile(base64, fileName);
-      return;
-    } catch (e) {}
-  }
-
-  // Fallback: browser blob download
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
+  await downloadContent(csv, `血压数据_${getLocalDateString()}.csv`, 'text/csv;charset=utf-8');
   showToast('文件已保存到下载文件夹');
+}
+
+async function exportWord() {
+  const records = await getAllRecords();
+  if (records.length === 0) { showToast('暂无数据可导出'); return; }
+  const html = `\ufeff${buildReportHTML(records)}`;
+  await downloadContent(html, `血压记录报告_${getLocalDateString()}.doc`, 'application/msword;charset=utf-8');
+  showToast('Word 报告已生成');
+}
+
+async function exportPDF() {
+  const records = await getAllRecords();
+  if (records.length === 0) { showToast('暂无数据可导出'); return; }
+  const frame = document.createElement('iframe');
+  frame.style.position = 'fixed';
+  frame.style.width = '1px';
+  frame.style.height = '1px';
+  frame.style.opacity = '0';
+  frame.style.pointerEvents = 'none';
+  document.body.appendChild(frame);
+  const doc = frame.contentDocument;
+  doc.open();
+  doc.write(buildReportHTML(records));
+  doc.close();
+  setTimeout(() => {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+    setTimeout(() => frame.remove(), 1500);
+  }, 300);
+  showToast('请在打印界面选择“保存为 PDF”');
 }
 
 // ============ CLEAR ALL ============
@@ -1117,9 +1331,13 @@ function getReminderTimes() {
 function saveReminderSettings() {
   const morning = document.getElementById('reminderMorning').value;
   const evening = document.getElementById('reminderEvening').value;
+  if (!morning || !evening) return showToast('请设置早晚提醒时间');
   localStorage.setItem('reminderMorning', morning);
   localStorage.setItem('reminderEvening', evening);
-  if (!('Notification' in window)) return showToast('你的浏览器不支持通知');
+  if (!('Notification' in window)) {
+    updateReminderUI();
+    return showToast('时间已保存，但当前环境不支持系统通知');
+  }
 
   if (Notification.permission === 'granted') {
     showToast('提醒设置已保存');
@@ -1149,7 +1367,10 @@ function updateReminderUI() {
   if (morning) morning.value = times.morning;
   if (evening) evening.value = times.evening;
 
-  if (Notification.permission !== 'granted') {
+  if (!('Notification' in window)) {
+    status.textContent = '当前环境不支持系统通知';
+    status.className = 'reminder-status off';
+  } else if (Notification.permission !== 'granted') {
     status.textContent = '⚠ 需要先授予通知权限';
     status.className = 'reminder-status off';
   } else if (!reminderEnabled) {
@@ -1164,19 +1385,25 @@ function updateReminderUI() {
 }
 
 function checkAndFireReminder() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const now = new Date();
-  const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const times = getReminderTimes();
-  const firedKey = `reminderFired_${now.toISOString().substring(0,10)}`;
+  const firedKey = `reminderFired_${getLocalDateString(now)}`;
 
   const todayFired = JSON.parse(localStorage.getItem(firedKey) || '{}');
+  const isDue = time => {
+    const [hour, minute] = time.split(':').map(Number);
+    const targetMinutes = hour * 60 + minute;
+    return currentMinutes >= targetMinutes && currentMinutes < targetMinutes + 10;
+  };
 
-  if (hhmm === times.morning && !todayFired.morning) {
+  if (isDue(times.morning) && !todayFired.morning) {
     showBPNotification('早上好！该测血压了', '早晨是血压测量的重要时段，记得记录哦～');
     todayFired.morning = true;
     localStorage.setItem(firedKey, JSON.stringify(todayFired));
   }
-  if (hhmm === times.evening && !todayFired.evening) {
+  if (isDue(times.evening) && !todayFired.evening) {
     showBPNotification('晚上好！记得测血压', '睡前测量有助了解一天的血压变化');
     todayFired.evening = true;
     localStorage.setItem(firedKey, JSON.stringify(todayFired));
@@ -1184,7 +1411,7 @@ function checkAndFireReminder() {
 }
 
 function showBPNotification(title, body) {
-  if (Notification.permission !== 'granted') return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const notif = new Notification(title, {
     body,
     icon: 'icons/icon-192.png',
@@ -1214,7 +1441,13 @@ function testNotification(type) {
 }
 
 // ============ INIT ============
+function updateAppHeight() {
+  const height = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${Math.round(height)}px`);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  updateAppHeight();
   // Splash screen — hide first, even if other init fails
   const splash = document.getElementById('splashScreen');
   if (splash) {
@@ -1238,11 +1471,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Init reminders
-  if ('Notification' in window) initReminders();
+  if ('Notification' in window) {
+    initReminders();
+    window.addEventListener('focus', checkAndFireReminder);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkAndFireReminder();
+    });
+  }
 
   // Listen for storage changes from other tabs
   window.addEventListener('storage', () => navigate(currentPage));
 });
+
+window.addEventListener('resize', updateAppHeight);
+window.addEventListener('orientationchange', updateAppHeight);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', updateAppHeight);
 </script>
 </body>
 </html>
